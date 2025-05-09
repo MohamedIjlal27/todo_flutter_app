@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/todo.dart';
-import '../models/category.dart';
 import '../providers/todo_provider.dart';
 import '../providers/category_provider.dart';
 import 'todo_item.dart';

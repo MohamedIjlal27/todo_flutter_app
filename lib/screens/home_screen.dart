@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
-import '../providers/theme_provider.dart';
 import '../models/todo.dart';
 import '../widgets/todo_search_bar.dart';
 import '../widgets/todo_filter_chips.dart';
