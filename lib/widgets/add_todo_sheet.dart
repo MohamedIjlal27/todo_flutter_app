@@ -15,15 +15,28 @@ class AddTodoSheet extends StatefulWidget {
 class _AddTodoSheetState extends State<AddTodoSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
   Priority _selectedPriority = Priority.medium;
   String? _imagePath;
+  bool _isLoading = false;
+  String? _titleError;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -56,18 +69,40 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
     }
   }
 
-  void _saveTodo() {
-    if (_titleController.text.isEmpty) return;
+  Future<void> _saveTodo() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      setState(() {
+        _titleError = 'Title is required';
+      });
+      return;
+    }
 
-    context.read<TodoProvider>().addTodo(
-          _titleController.text,
-          description: _descriptionController.text,
-          dueDate: _selectedDate,
-          priority: _selectedPriority,
-          imagePath: _imagePath,
-        );
+    setState(() {
+      _isLoading = true;
+      _titleError = null;
+    });
 
-    Navigator.pop(context);
+    try {
+      await context.read<TodoProvider>().addTodo(
+            title,
+            description: _descriptionController.text.trim(),
+            dueDate: _selectedDate,
+            priority: _selectedPriority,
+            imagePath: _imagePath,
+          );
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      _showError('Failed to add task: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -79,109 +114,135 @@ class _AddTodoSheetState extends State<AddTodoSheet> {
         left: 16,
         right: 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Add New Task',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              border: OutlineInputBorder(),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Add New Task',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                ),
+              ],
             ),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                labelText: 'Title',
+                border: const OutlineInputBorder(),
+                errorText: _titleError,
+                enabled: !_isLoading,
+              ),
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) {
+                if (_titleError != null) {
+                  setState(() {
+                    _titleError = null;
+                  });
+                }
+              },
             ),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _selectDate(context),
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(
-                    _selectedDate == null
-                        ? 'Set Due Date'
-                        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Description',
+                border: const OutlineInputBorder(),
+                enabled: !_isLoading,
+              ),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : () => _selectDate(context),
+                    icon: const Icon(Icons.calendar_today),
+                    label: Text(
+                      _selectedDate == null
+                          ? 'Set Due Date'
+                          : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                    ),
                   ),
                 ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _pickImage,
+                    icon: const Icon(Icons.image),
+                    label: Text(_imagePath == null ? 'Add Image' : 'Change Image'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<Priority>(
+              value: _selectedPriority,
+              decoration: InputDecoration(
+                labelText: 'Priority',
+                border: const OutlineInputBorder(),
+                enabled: !_isLoading,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.image),
-                  label: Text(_imagePath == null ? 'Add Image' : 'Change Image'),
+              items: Priority.values.map((priority) {
+                return DropdownMenuItem(
+                  value: priority,
+                  child: Text(priority.name.toUpperCase()),
+                );
+              }).toList(),
+              onChanged: _isLoading ? null : (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedPriority = value;
+                  });
+                }
+              },
+            ),
+            if (_imagePath != null) ...[
+              const SizedBox(height: 16),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_imagePath!),
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  cacheWidth: 800,
+                  cacheHeight: 600,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<Priority>(
-            value: _selectedPriority,
-            decoration: const InputDecoration(
-              labelText: 'Priority',
-              border: OutlineInputBorder(),
-            ),
-            items: Priority.values.map((priority) {
-              return DropdownMenuItem(
-                value: priority,
-                child: Text(priority.name.toUpperCase()),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedPriority = value;
-                });
-              }
-            },
-          ),
-          if (_imagePath != null) ...[
             const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(_imagePath!),
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            ElevatedButton(
+              onPressed: _isLoading ? null : _saveTodo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add Task'),
               ),
             ),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _saveTodo,
-            child: const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('Add Task'),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
