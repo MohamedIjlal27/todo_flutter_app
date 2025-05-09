@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
 import '../models/todo.dart';
 import '../providers/todo_provider.dart';
+import 'image_source_sheet.dart';
 
 class TodoDetailSheet extends StatefulWidget {
   final Todo todo;
@@ -44,14 +44,18 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
   }
 
   Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image != null) {
-      setState(() {
-        _imagePath = image.path;
-      });
-    }
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => ImageSourceSheet(
+        onImageSelected: (path) {
+          if (path != null) {
+            setState(() {
+              _imagePath = path;
+            });
+          }
+        },
+      ),
+    );
   }
 
   Future<void> _selectDate(BuildContext context) async {
