@@ -45,21 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
     final todoProvider = context.watch<TodoProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Tasks'),
-        actions: [
-          IconButton(
-            icon: Icon(
-              themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-            ),
-            onPressed: themeProvider.toggleTheme,
-          ),
-        ],
-      ),
       body: Column(
         children: [
           Padding(
