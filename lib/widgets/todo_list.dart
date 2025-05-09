@@ -49,9 +49,9 @@ class TodoList extends StatelessWidget {
     }
 
     return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
       itemCount: todos.length,
       onReorderStart: (index) {
-        // Optional: Add haptic feedback
         HapticFeedback.mediumImpact();
       },
       onReorder: (oldIndex, newIndex) {
@@ -101,16 +101,19 @@ class TodoList extends StatelessWidget {
           onDismissed: (direction) {
             context.read<TodoProvider>().deleteTodo(todo.id);
           },
-          child: TodoItem(
-            todo: todo,
-            category: category,
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => TodoDetailSheet(todo: todo),
-              );
-            },
+          child: ReorderableDragStartListener(
+            index: index,
+            child: TodoItem(
+              todo: todo,
+              category: category,
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) => TodoDetailSheet(todo: todo),
+                );
+              },
+            ),
           ),
         );
       },

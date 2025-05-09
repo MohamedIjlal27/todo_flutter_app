@@ -69,6 +69,12 @@ class TodoItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      Icon(
+                        Icons.drag_handle,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
                       if (category != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
