@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddTodoSheet,
-        label: const Text('Add Task'),
+        label: const Text('Add New Task'),
         icon: const Icon(Icons.add),
       ),
     );
