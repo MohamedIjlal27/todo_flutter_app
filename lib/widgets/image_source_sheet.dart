@@ -9,7 +9,7 @@ class ImageSourceSheet extends StatelessWidget {
     required this.onImageSelected,
   });
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
     final ImagePicker picker = ImagePicker();
     try {
       final XFile? image = await picker.pickImage(
@@ -22,13 +22,24 @@ class ImageSourceSheet extends StatelessWidget {
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
+      // Show error message to user
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              source == ImageSource.camera
+                  ? 'Error accessing camera. Please check permissions.'
+                  : 'Error accessing gallery. Please check permissions.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    if (Navigator.canPop(navigatorKey.currentContext!)) {
-      Navigator.pop(navigatorKey.currentContext!);
+    if (context.mounted) {
+      Navigator.pop(context);
     }
   }
-
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -49,13 +60,13 @@ class ImageSourceSheet extends StatelessWidget {
                 context,
                 icon: Icons.camera_alt,
                 label: 'Camera',
-                onTap: () => _pickImage(ImageSource.camera),
+                onTap: () => _pickImage(context, ImageSource.camera),
               ),
               _buildOption(
                 context,
                 icon: Icons.photo_library,
                 label: 'Gallery',
-                onTap: () => _pickImage(ImageSource.gallery),
+                onTap: () => _pickImage(context, ImageSource.gallery),
               ),
             ],
           ),
