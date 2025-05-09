@@ -24,6 +24,7 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
   late Priority _selectedPriority;
   late bool _isCompleted;
   String? _imagePath;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -73,21 +74,81 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
     }
   }
 
-  void _saveTodo() {
-    if (_titleController.text.isEmpty) return;
-
-    final updatedTodo = Todo(
-      id: widget.todo.id,
-      title: _titleController.text,
-      description: _descriptionController.text,
-      dueDate: _selectedDate,
-      priority: _selectedPriority,
-      isCompleted: _isCompleted,
-      imagePath: _imagePath,
+  Future<bool> _showDeleteConfirmation() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: const Text('Are you sure you want to delete this task?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
+    return result ?? false;
+  }
 
-    context.read<TodoProvider>().updateTodo(updatedTodo);
-    Navigator.pop(context);
+  void _deleteTodo() async {
+    final shouldDelete = await _showDeleteConfirmation();
+    if (shouldDelete && mounted) {
+      context.read<TodoProvider>().deleteTodo(widget.todo.id);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  Future<void> _saveTodo() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      _showError('Title is required');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final updatedTodo = Todo(
+        id: widget.todo.id,
+        title: title,
+        description: _descriptionController.text.trim(),
+        dueDate: _selectedDate,
+        priority: _selectedPriority,
+        isCompleted: _isCompleted,
+        imagePath: _imagePath,
+      );
+
+      await context.read<TodoProvider>().updateTodo(updatedTodo);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      _showError('Failed to save todo: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -99,118 +160,151 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
         left: 16,
         right: 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Stack(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Edit Task',
-                style: Theme.of(context).textTheme.titleLarge,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Edit Task',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: _deleteTodo,
+                        tooltip: 'Delete Task',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                        tooltip: 'Close',
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Title',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _descriptionController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _selectDate(context),
-                  icon: const Icon(Icons.calendar_today),
-                  label: Text(
-                    _selectedDate == null
-                        ? 'Set Due Date'
-                        : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+              const SizedBox(height: 16),
+              TextField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _selectDate(context),
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(
+                        _selectedDate == null
+                            ? 'Set Due Date'
+                            : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.image),
+                      label: Text(_imagePath == null ? 'Add Image' : 'Change Image'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<Priority>(
+                value: _selectedPriority,
+                decoration: const InputDecoration(
+                  labelText: 'Priority',
+                  border: OutlineInputBorder(),
+                ),
+                items: Priority.values.map((priority) {
+                  return DropdownMenuItem(
+                    value: priority,
+                    child: Text(priority.name.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedPriority = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                title: const Text('Mark as completed'),
+                value: _isCompleted,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _isCompleted = value;
+                    });
+                  }
+                },
+              ),
+              if (_imagePath != null) ...[
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(_imagePath!),
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    cacheWidth: 800,
+                    cacheHeight: 600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.image),
-                  label: Text(_imagePath == null ? 'Add Image' : 'Change Image'),
+              ],
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _saveTodo,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save Changes'),
                 ),
               ),
+              const SizedBox(height: 16),
             ],
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<Priority>(
-            value: _selectedPriority,
-            decoration: const InputDecoration(
-              labelText: 'Priority',
-              border: OutlineInputBorder(),
-            ),
-            items: Priority.values.map((priority) {
-              return DropdownMenuItem(
-                value: priority,
-                child: Text(priority.name.toUpperCase()),
-              );
-            }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _selectedPriority = value;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          CheckboxListTile(
-            title: const Text('Mark as completed'),
-            value: _isCompleted,
-            onChanged: (value) {
-              if (value != null) {
-                setState(() {
-                  _isCompleted = value;
-                });
-              }
-            },
-          ),
-          if (_imagePath != null) ...[
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                File(_imagePath!),
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
+          if (_isLoading)
+            Container(
+              color: Colors.black12,
+              child: const Center(
+                child: CircularProgressIndicator(),
               ),
             ),
-          ],
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _saveTodo,
-            child: const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('Save Changes'),
-            ),
-          ),
-          const SizedBox(height: 16),
         ],
       ),
     );
