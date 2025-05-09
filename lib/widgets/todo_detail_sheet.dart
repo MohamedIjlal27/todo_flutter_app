@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/todo.dart';
 import '../providers/todo_provider.dart';
+import '../providers/category_provider.dart';
 import 'image_source_sheet.dart';
+import 'category_sheet.dart';
 
 class TodoDetailSheet extends StatefulWidget {
   final Todo todo;
@@ -23,6 +25,7 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
   late DateTime? _selectedDate;
   late Priority _selectedPriority;
   late bool _isCompleted;
+  late String? _selectedCategoryId;
   String? _imagePath;
   bool _isLoading = false;
 
@@ -35,6 +38,7 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
     _selectedPriority = widget.todo.priority;
     _isCompleted = widget.todo.isCompleted;
     _imagePath = widget.todo.imagePath;
+    _selectedCategoryId = widget.todo.categoryId;
   }
 
   @override
@@ -136,6 +140,7 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
         priority: _selectedPriority,
         isCompleted: _isCompleted,
         imagePath: _imagePath,
+        categoryId: _selectedCategoryId,
       );
 
       await context.read<TodoProvider>().updateTodo(updatedTodo);
@@ -249,6 +254,61 @@ class _TodoDetailSheetState extends State<TodoDetailSheet> {
                       _selectedPriority = value;
                     });
                   }
+                },
+              ),
+              const SizedBox(height: 16),
+              Consumer<CategoryProvider>(
+                builder: (context, categoryProvider, child) {
+                  final categories = categoryProvider.categories;
+                  return DropdownButtonFormField<String>(
+                    value: _selectedCategoryId,
+                    decoration: InputDecoration(
+                      labelText: 'Category',
+                      border: const OutlineInputBorder(),
+                      enabled: !_isLoading,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  builder: (context) => const CategorySheet(),
+                                );
+                              },
+                      ),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No Category'),
+                      ),
+                      ...categories.map((category) {
+                        return DropdownMenuItem<String>(
+                          value: category.id,
+                          child: Row(
+                            children: [
+                              Icon(
+                                category.icon,
+                                color: category.color,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(category.name),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _selectedCategoryId = value;
+                            });
+                          },
+                  );
                 },
               ),
               const SizedBox(height: 16),

@@ -29,6 +29,7 @@ class TodoProvider extends ChangeNotifier {
     try {
       await _storage.init();
       _todos = await _storage.getAllTodos();
+      _todos.sort((a, b) => a.order.compareTo(b.order));
     } catch (e) {
       _setError('Failed to initialize: ${e.toString()}');
     } finally {
@@ -41,6 +42,7 @@ class TodoProvider extends ChangeNotifier {
     DateTime? dueDate,
     Priority priority = Priority.medium,
     String? imagePath,
+    String? categoryId,
   }) async {
     _setLoading(true);
     _setError(null);
@@ -52,6 +54,8 @@ class TodoProvider extends ChangeNotifier {
         dueDate: dueDate,
         priority: priority,
         imagePath: imagePath,
+        categoryId: categoryId,
+        order: _todos.length,  // Add to end of list
       );
       _todos.add(todo);
       await _storage.saveTodo(todo);
@@ -128,6 +132,29 @@ class TodoProvider extends ChangeNotifier {
       _todos[index] = oldTodo; // Rollback optimistic update
       _setError('Failed to update todo status: ${e.toString()}');
     }
+  }
+
+  Future<void> reorderTodo(int oldIndex, int newIndex) async {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final todo = _todos.removeAt(oldIndex);
+    _todos.insert(newIndex, todo);
+
+    // Update order for affected todos
+    for (int i = 0; i < _todos.length; i++) {
+      final currentTodo = _todos[i];
+      if (currentTodo.order != i) {
+        final updatedTodo = currentTodo.copyWith(order: i);
+        _todos[i] = updatedTodo;
+        try {
+          await _storage.updateTodo(updatedTodo);
+        } catch (e) {
+          _setError('Failed to update todo order: ${e.toString()}');
+        }
+      }
+    }
+    notifyListeners();
   }
 
   List<Todo> getFilteredTodos({

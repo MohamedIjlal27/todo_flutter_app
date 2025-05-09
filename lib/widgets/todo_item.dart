@@ -1,16 +1,22 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../models/todo.dart';
+import '../models/category.dart';
 import '../providers/todo_provider.dart';
 import 'todo_detail_sheet.dart';
 
 class TodoItem extends StatelessWidget {
   final Todo todo;
+  final Category? category;
+  final VoidCallback? onTap;
 
   const TodoItem({
     super.key,
     required this.todo,
+    this.category,
+    this.onTap,
   });
 
   Color _getPriorityColor(Priority priority) {
@@ -52,108 +58,132 @@ class TodoItem extends StatelessWidget {
           ],
         ),
         child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: InkWell(
-            onTap: () => _showTodoDetail(context),
+            onTap: onTap ?? () => _showTodoDetail(context),
+            borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Transform.scale(
-                    scale: 1.2,
-                    child: Checkbox(
-                      value: todo.isCompleted,
-                      onChanged: (value) {
-                        context.read<TodoProvider>().toggleTodoStatus(todo.id);
-                      },
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                todo.title,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: todo.isCompleted
-                                      ? TextDecoration.lineThrough
-                                      : null,
-                                ),
-                              ),
-                            ),
-                            if (todo.imagePath != null)
-                              const Icon(
-                                Icons.image,
-                                color: Colors.grey,
-                                size: 20,
-                              ),
-                          ],
-                        ),
-                        if (todo.description?.isNotEmpty ?? false) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            todo.description!,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              decoration: todo.isCompleted
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (category != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: category!.color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                        ],
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getPriorityColor(todo.priority)
-                                    .withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                todo.priority.name.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _getPriorityColor(todo.priority),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            if (todo.dueDate != null) ...[
-                              const SizedBox(width: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                               Icon(
-                                Icons.calendar_today,
+                                category!.icon,
+                                color: category!.color,
                                 size: 16,
-                                color: Colors.grey[600],
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                '${todo.dueDate!.day}/${todo.dueDate!.month}/${todo.dueDate!.year}',
+                                category!.name,
                                 style: TextStyle(
+                                  color: category!.color,
                                   fontSize: 12,
-                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
-                          ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Expanded(
+                        child: Text(
+                          todo.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            decoration:
+                                todo.isCompleted ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                      ),
+                      Checkbox(
+                        value: todo.isCompleted,
+                        onChanged: (value) {
+                          if (value != null) {
+                            context
+                                .read<TodoProvider>()
+                                .toggleTodoStatus(todo.id);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  if (todo.description?.isNotEmpty ?? false) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      todo.description!,
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
+                      ),
+                    ),
+                  ],
+                  if (todo.dueDate != null || todo.priority != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (todo.dueDate != null) ...[
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${todo.dueDate!.day}/${todo.dueDate!.month}/${todo.dueDate!.year}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                        ],
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getPriorityColor(todo.priority).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            todo.priority.name.toUpperCase(),
+                            style: TextStyle(
+                              color: _getPriorityColor(todo.priority),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
+                  if (todo.imagePath != null) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(todo.imagePath!),
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
